@@ -71,7 +71,7 @@ class HorizonException extends \ErrorException
      *
      * @var string[]
      */
-    protected $operationResultCodes;
+    protected $operationResultCodes = [];
 
     /**
      * @var string
@@ -100,7 +100,7 @@ class HorizonException extends \ErrorException
         if (isset($raw['status'])) $exception->httpStatusCode = $raw['status'];
         if (isset($raw['detail'])) $exception->detail = $raw['detail'];
         if (!empty($raw['extras']['result_codes']['operations'])) {
-            $exception->operationResultCodes = $raw['extras']['result_codes']['operations'];
+            $exception->operationResultCodes = (array) $raw['extras']['result_codes']['operations'];
         }
         if (!empty($raw['extras']['result_codes']['transaction'])) {
             $exception->transactionResultCode = $raw['extras']['result_codes']['transaction'];
@@ -121,7 +121,7 @@ class HorizonException extends \ErrorException
      */
     public function __construct($title, Throwable $previous = null)
     {
-        parent::__construct($title, 0, 1, $previous->getFile(), $previous->getLine(), $previous);
+        parent::__construct($title, 0, 1, $previous ? $previous->getFile() : __FILE__, $previous ? $previous->getLine() || __LINE__, $previous);
     }
 
     /**
@@ -142,7 +142,7 @@ class HorizonException extends \ErrorException
         if ($this->transactionResultCode) {
             $message .= sprintf(" Tx Result: %s", $this->transactionResultCode);
         }
-        if (!empty($this->operationResultCodes)) {
+        if (count($this->operationResultCodes) > 0) {
             $message .= sprintf(" Op Results: %s", print_r($this->operationResultCodes,true));
         }
 

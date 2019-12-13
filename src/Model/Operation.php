@@ -11,18 +11,20 @@ use ZuluCrypto\StellarSdk\XdrModel\Operation\BumpSequenceOp;
  */
 class Operation extends RestApiModel
 {
-    const TYPE_CREATE_ACCOUNT       = 'create_account';
-    const TYPE_PAYMENT              = 'payment';
-    const TYPE_PATH_PAYMENT         = 'path_payment';
-    const TYPE_MANAGE_OFFER         = 'manage_offer';
-    const TYPE_CREATE_PASSIVE_OFFER = 'create_passive_offer';
-    const TYPE_SET_OPTIONS          = 'set_options';
-    const TYPE_CHANGE_TRUST         = 'change_trust';
-    const TYPE_ALLOW_TRUST          = 'allow_trust';
-    const TYPE_ACCOUNT_MERGE        = 'account_merge';
-    const TYPE_INFLATION            = 'inflation';
-    const TYPE_MANAGE_DATA          = 'manage_data';
-    const TYPE_BUMP_SEQUENCE        = 'bump_sequence';
+    const TYPE_CREATE_ACCOUNT           = 'create_account';
+    const TYPE_PAYMENT                  = 'payment';
+    const TYPE_PATH_PAYMENT             = 'path_payment';
+    const TYPE_MANAGE_BUY_OFFER         = 'manage_buy_offer'; // type_i: 12
+    const TYPE_MANAGE_SELL_OFFER        = 'manage_offer'; // type_i: 3
+    const TYPE_MANAGE_OFFER             = 'manage_offer'; // TODO: deprecated
+    const TYPE_CREATE_PASSIVE_OFFER     = 'create_passive_offer';
+    const TYPE_SET_OPTIONS              = 'set_options';
+    const TYPE_CHANGE_TRUST             = 'change_trust';
+    const TYPE_ALLOW_TRUST              = 'allow_trust';
+    const TYPE_ACCOUNT_MERGE            = 'account_merge';
+    const TYPE_INFLATION                = 'inflation';
+    const TYPE_MANAGE_DATA              = 'manage_data';
+    const TYPE_BUMP_SEQUENCE            = 'bump_sequence';
 
     /**
      * Operation ID on the Stellar network
@@ -46,6 +48,8 @@ class Operation extends RestApiModel
     protected $typeI;
 
     /**
+     * The transaction hash.
+     *
      * @var string
      */
     protected $transactionHash;
@@ -71,7 +75,11 @@ class Operation extends RestApiModel
                 $object = new PathPayment($rawData['id'], $rawData['type']);
                 break;
             case Operation::TYPE_MANAGE_OFFER:
-                $object = new ManageOfferOperation($rawData['id'], $rawData['type']);
+            case Operation::TYPE_MANAGE_SELL_OFFER:
+                $object = new ManageSellOfferOperation($rawData['id'], $rawData['type']);
+                break;
+            case Operation::TYPE_MANAGE_BUY_OFFER:
+                $object = new ManageBuyOfferOperation($rawData['id'], $rawData['type']);
                 break;
             case Operation::TYPE_CREATE_PASSIVE_OFFER:
                 $object = new CreatePassiveOfferOperation($rawData['id'], $rawData['type']);

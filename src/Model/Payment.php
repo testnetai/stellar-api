@@ -24,7 +24,7 @@ class Payment extends Operation implements AssetTransferInterface
      * @var string
      */
     private $toAccountId;
-
+    
     /**
      * @var AssetAmount
      */
@@ -188,5 +188,5 @@ class Payment extends Operation implements AssetTransferInterface
     public function setAmount(AssetAmount $amount)
     {
         $this->amount = $amount;
-    }
+    }    
 }

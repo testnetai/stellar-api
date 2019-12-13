@@ -3,14 +3,17 @@
 
 namespace ZuluCrypto\StellarSdk\Model;
 
-
 use phpseclib\Math\BigInteger;
 use ZuluCrypto\StellarSdk\Horizon\Api\HorizonResponse;
 use ZuluCrypto\StellarSdk\Keypair;
 use ZuluCrypto\StellarSdk\Transaction\TransactionBuilder;
 use ZuluCrypto\StellarSdk\Util\MathSafety;
 use ZuluCrypto\StellarSdk\XdrModel\Asset;
+use ZuluCrypto\StellarSdk\XdrModel\Operation\ManageBuyOfferOp;
+use ZuluCrypto\StellarSdk\XdrModel\Operation\ManageOfferOp;
+use ZuluCrypto\StellarSdk\XdrModel\Operation\ManageSellOfferOp;
 use ZuluCrypto\StellarSdk\XdrModel\Operation\PaymentOp;
+use ZuluCrypto\StellarSdk\XdrModel\Price;
 
 /**
  * See: https://www.stellar.org/developers/horizon/reference/resources/account.html
@@ -67,6 +70,9 @@ class Account extends RestApiModel
         $object->sequence = $rawData['sequence'];
         $object->subentryCount = $rawData['subentry_count'];
         $object->thresholds = $rawData['thresholds'];
+        $object->flags = $rawData['flags'];
+        // TODO: signers
+
         $object->data = [];
         if (isset($rawData['data'])) {
             foreach ($rawData['data'] as $key => $value) {
@@ -168,16 +174,12 @@ class Account extends RestApiModel
         $transactions = [];
 
         $url = sprintf('/accounts/%s/transactions', $this->accountId);
-        $params = [];
 
+        $params = [];
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
         if ($limit) $params['limit'] = $limit;
 
-        if ($params) {
-            $url .= '?' . http_build_query($params);
-        }
-
-        $response = $this->apiClient->get($url);
+        $response = $this->apiClient->get($url, $params);
         $rawTransactions = $response->getRecords();
 
         foreach ($rawTransactions as $rawTransaction) {
@@ -200,16 +202,12 @@ class Account extends RestApiModel
     {
         $effects = [];
         $url = sprintf('/accounts/%s/effects', $this->accountId);
-        $params = [];
 
+        $params = [];
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
         if ($limit) $params['limit'] = $limit;
 
-        if ($params) {
-            $url .= '?' . http_build_query($params);
-        }
-
-        $response = $this->apiClient->get($url);
+        $response = $this->apiClient->get($url, $params);
         $raw = $response->getRecords();
 
         foreach ($raw as $rawEffect) {
@@ -225,23 +223,52 @@ class Account extends RestApiModel
     /**
      * @param null $sinceCursor
      * @param int  $limit
+     * @return array
+     */
+    public function getOffers($sinceCursor = null, $limit = 50)
+    {
+        $offers = [];
+
+        $url = sprintf('/accounts/%s/offers', $this->accountId);
+
+        $params = [];
+        if ($sinceCursor) $params['cursor'] = $sinceCursor;
+        if ($limit) $params['limit'] = $limit;
+
+        $response = $this->apiClient->get($url, $params);
+        $rawRecords = $response->getRecords($limit);
+        foreach ($rawRecords as $rawRecord) {
+            if (isset($rawRecord['amount'])) {
+                // $result = new ManageSellOfferOp($sellingAsset, $buyingAsset, $rawRecord['amount'], $price);
+                $result = ManageSellOfferOperation::fromRawResponseData($rawRecord);
+            } else if (isset($rawRecord['buyAmount'])) {
+                // $result = new ManageBuyOfferOp($sellingAsset, $buyingAsset, $rawRecord['buyAmount'], $price);
+                $result = ManageBuyOfferOperation::fromRawResponseData($rawRecord);
+            }
+
+            $result->setApiClient($this->getApiClient());
+            $offers[] = $result;
+        }
+
+        return $offers;
+    }
+
+    /**
+     * @param null $sinceCursor
+     * @param int  $limit
      * @return array|AssetTransferInterface[]|RestApiModel[]
      */
     public function getPayments($sinceCursor = null, $limit = 50)
     {
-        $results = [];
+        $payments = [];
 
         $url = sprintf('/accounts/%s/payments', $this->accountId);
-        $params = [];
 
+        $params = [];
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
         if ($limit) $params['limit'] = $limit;
 
-        if ($params) {
-            $url .= '?' . http_build_query($params);
-        }
-
-        $response = $this->apiClient->get($url);
+        $response = $this->apiClient->get($url, $params);
         $rawRecords = $response->getRecords($limit);
 
         foreach ($rawRecords as $rawRecord) {
@@ -262,10 +289,10 @@ class Account extends RestApiModel
 
             $result->setApiClient($this->getApiClient());
 
-            $results[] = $result;
+            $payments[] = $result;
         }
 
-        return $results;
+        return $payments;
     }
 
     /**
@@ -369,17 +396,7 @@ class Account extends RestApiModel
 
         return null;
     }
-    
-    /**
-     * Returns an array holding account thresholds.
-     * 
-     * @return array
-     */
-    public function getThresholds()
-    {
-        return $this->thresholds;
-    }
-
+ 
     /**
      * This returns the sequence exactly as it comes back from the Horizon API
      *
@@ -420,4 +437,20 @@ class Account extends RestApiModel
     {
         return $this->data;
     }
+
+    /**
+     * Returns an array of thresholds with the following keys: low_threshold, medium_threshold, high_threshold.
+     *
+     * @return mixed
+     */
+    public function getThresholds()
+    {
+        return $this->thresholds;
+    }
+
+    public function getFlags()
+    {
+        return $this->flags;
+    }
+
 }

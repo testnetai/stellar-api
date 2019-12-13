@@ -36,6 +36,7 @@ abstract class Operation implements XdrEncodableInterface
     const TYPE_PAYMENT              = 1;
     const TYPE_PATH_PAYMENT         = 2;
     const TYPE_MANAGE_OFFER         = 3;
+    const TYPE_MANAGE_SELL_OFFER    = 3;
     const TYPE_CREATE_PASSIVE_OFFER = 4;
     const TYPE_SET_OPTIONS          = 5;
     const TYPE_CHANGE_TRUST         = 6;
@@ -44,6 +45,7 @@ abstract class Operation implements XdrEncodableInterface
     const TYPE_INFLATION            = 9;
     const TYPE_MANAGE_DATA          = 10;
     const TYPE_BUMP_SEQUENCE        = 11;
+    const TYPE_MANAGE_BUY_OFFER     = 12;
 
     /**
      * @var AccountId
@@ -129,7 +131,11 @@ abstract class Operation implements XdrEncodableInterface
                 $model = PathPaymentOp::fromXdr($xdr);
                 break;
             case Operation::TYPE_MANAGE_OFFER:
-                $model = ManageOfferOp::fromXdr($xdr);
+            case Operation::TYPE_MANAGE_SELL_OFFER:
+                $model = ManageSellOfferOp::fromXdr($xdr);
+                break;
+            case Operation::TYPE_MANAGE_BUY_OFFER:
+                $model = ManageBuyOfferOp::fromXdr($xdr);
                 break;
             case Operation::TYPE_CREATE_PASSIVE_OFFER:
                 $model = CreatePassiveOfferOp::fromXdr($xdr);

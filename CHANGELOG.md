@@ -1,3 +1,17 @@
+### 0.8.0
+
+This change represents all additions completed by testnet.ai.
+
+ * Updated ApiClient to support the passing of GET url parameters as an array. This allows for integration with BlockDaemon Stellar Horizon nodes.
+ * Updated ApiClient to include new method for `getOrderbook()`
+ * Exposed ApiClient's `getHttpClient()` method to allow for user's to define their own custom requests should they want to (i.e. if the SDK lags behind API advancements).
+ * Added `getOffers()` and `getFlags()` to the `Account` model
+ * Added `ManageBuyOfferOperation`, `ManageSellOfferOperation`, and aliased (deprecated) `ManageOfferOperation` to extend `ManageSellOfferOperation`
+ * Added `Operation::TYPE_MANAGE_BUY_OFFER` and `Operation::TYPE_MANAGE_SELL_OFFER` to reflect more recent Horizon API changes
+ * Updated `Operation::fromRawResponseData()` to support the newer representations of `TYPE_MANAGE_BUY_OFFER` and `TYPE_MANAGE_SELL_OFFER`
+ * Added `setFee()` method to `TransactionBuilder` to be able to dynamically set a custom fee for a given transaction.
+ * 
+
 ### 0.7.0
 
  * Additional support for BumpSequenceOp: it is now read correctly when listing operations

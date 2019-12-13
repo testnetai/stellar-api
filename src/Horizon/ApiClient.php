@@ -3,7 +3,6 @@
 
 namespace ZuluCrypto\StellarSdk\Horizon;
 
-
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
@@ -17,6 +16,7 @@ use ZuluCrypto\StellarSdk\Model\CreateAccountOperation;
 use ZuluCrypto\StellarSdk\Model\Effect;
 use ZuluCrypto\StellarSdk\Model\Ledger;
 use ZuluCrypto\StellarSdk\Model\Operation;
+use ZuluCrypto\StellarSdk\Model\Orderbook;
 use ZuluCrypto\StellarSdk\Model\PathPayment;
 use ZuluCrypto\StellarSdk\Model\Payment;
 use ZuluCrypto\StellarSdk\Model\Transaction;
@@ -24,6 +24,7 @@ use ZuluCrypto\StellarSdk\Transaction\TransactionBuilder;
 use ZuluCrypto\StellarSdk\Util\Hash;
 use ZuluCrypto\StellarSdk\Util\Json;
 use ZuluCrypto\StellarSdk\Xdr\XdrEncoder;
+use ZuluCrypto\StellarSdk\XdrModel\Asset;
 use ZuluCrypto\StellarSdk\XdrModel\TransactionEnvelope;
 
 class ApiClient
@@ -41,6 +42,11 @@ class ApiClient
      * @var string
      */
     protected $baseUrl;
+
+    /**
+     * @var array
+     */
+    protected $baseUrlParams;
 
     /**
      * @var boolean
@@ -92,11 +98,17 @@ class ApiClient
      */
     public function __construct($baseUrl, $networkPassphrase)
     {
-        $this->baseUrl = $baseUrl;
+        // split into url and params
+        $parsedUrl = parse_url($baseUrl);
+        
+        $this->baseUrl = $this->_getPathFromParsedUrl($parsedUrl);
+        $this->baseUrlParams = $this->_getParamsFromParsedUrl($parsedUrl);
+
         $this->httpClient = new Client([
-            'base_uri' => $baseUrl,
+            'base_uri' => $this->baseUrl,
             'exceptions' => false,
         ]);
+
         $this->networkPassphrase = $networkPassphrase;
     }
 
@@ -172,16 +184,51 @@ class ApiClient
     }
 
     /**
-     * @param $relativeUrl
-     * @return HorizonResponse
-     * @throws HorizonException
+     * @link https://github.com/stellar-deprecated/horizon/blob/master/docs/reference/endpoints/orderbook-details.md
      */
-    public function get($relativeUrl)
+    public function getOrderbook(Asset $selling, Asset $buying)
+    {
+        $params = [
+            'selling_asset_type' => $selling->isNative() ? 'native' : ($selling->getType() === 1 ? 'credit_alphanum4' : 'credit_alphanum12'),
+            'buying_asset_type' => $buying->isNative() ? 'native' : ($buying->getType() === 1 ? 'credit_alphanum4' : 'credit_alphanum12')
+        ];
+
+        if (!$selling->isNative()) {
+            $params['selling_asset_code'] = $selling->getAssetCode();
+            $params['selling_asset_issuer'] = $selling->getIssuer()->getAccountIdString();
+        }
+
+        if (!$buying->isNative()) {
+            $params['buying_asset_code'] = $buying->getAssetCode();
+            $params['buying_asset_issuer'] = $buying->getIssuer()->getAccountIdString();
+        }
+
+        // $url = sprintf('/order_book/?%s', http_build_query($params));
+        $url = '/order_book/';
+
+        $orderbook = Orderbook::fromHorizonResponse($this->get('/order_book/', $params));
+        $orderbook->setApiClient($this);
+
+        return $orderbook;
+    }
+
+    /**
+     * @param   string  $relativeUrl
+     * @return  HorizonResponse
+     * @throws  HorizonException
+     */
+    public function get($relativeUrl, $params = [])
     {
         try {
+
+            $params = array_merge($this->baseUrlParams, $params);
+            if (!empty($params)) {
+                $relativeUrl = sprintf('%s?%s', $relativeUrl, http_build_query($params));
+            }
+
             $res = $this->httpClient->get($relativeUrl);
-        }
-        catch (ClientException $e) {
+
+        } catch (ClientException $e) {
             // If the response can be json-decoded then it can be converted to a HorizonException
             $decoded = null;
             if ($e->getResponse()) {
@@ -198,18 +245,23 @@ class ApiClient
     }
 
     /**
-     * @param       $relativeUrl
-     * @param array $parameters
-     * @return HorizonResponse
+     * @param   string  $relativeUrl
+     * @param   array   $parameters
+     * @return  HorizonResponse
      */
     public function post($relativeUrl, $parameters = array())
     {
         $apiResponse = null;
 
         try {
+
+            if (!empty($this->baseUrlParams)) {
+                $relativeUrl = sprintf('%s?%s', $relativeUrl, http_build_query($this->baseUrlParams));
+            }
+
             $apiResponse = $this->httpClient->post($relativeUrl, [ 'form_params' => $parameters ]);
-        }
-        catch (ClientException $e) {
+
+        } catch (ClientException $e) {
               // If the response can be json-decoded then it can be converted to a HorizonException
             $decoded = null;
             if ($e->getResponse()) {
@@ -248,7 +300,8 @@ class ApiClient
 
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
 
-        if ($params) {
+        $params = array_merge($this->baseUrlParams, $params);
+        if (!empty($params)) {
             $url .= '?' . http_build_query($params);
         }
 
@@ -288,6 +341,7 @@ class ApiClient
 
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
 
+        $params = array_merge($this->baseUrlParams, $params);
         if ($params) {
             $url .= '?' . http_build_query($params);
         }
@@ -323,6 +377,7 @@ class ApiClient
 
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
 
+        $params = array_merge($this->baseUrlParams, $params);
         if ($params) {
             $url .= '?' . http_build_query($params);
         }
@@ -358,6 +413,7 @@ class ApiClient
 
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
 
+        $params = array_merge($this->baseUrlParams, $params);
         if ($params) {
             $url .= '?' . http_build_query($params);
         }
@@ -407,6 +463,7 @@ class ApiClient
 
         if ($sinceCursor) $params['cursor'] = $sinceCursor;
 
+        $params = array_merge($this->baseUrlParams, $params);
         if ($params) {
             $url .= '?' . http_build_query($params);
         }
@@ -428,6 +485,7 @@ class ApiClient
     {
         while (true) {
             try {
+
                 $response = $this->httpClient->get($relativeUrl, [
                     'stream' => true,
                     'read_timeout' => null,
@@ -466,8 +524,7 @@ class ApiClient
                     }
                 }
 
-            }
-            catch (ServerException $e) {
+            } catch (ServerException $e) {
                 if (!$retryOnServerException) throw $e;
 
                 // Delay for a bit before trying again
@@ -490,6 +547,11 @@ class ApiClient
         $apiResponse = null;
 
         try {
+
+            if (!empty($this->baseUrlParams)) {
+                $relativeUrl = sprintf('%s?%s', $relativeUrl, http_build_query($this->baseUrlParams));
+            }
+
             $apiResponse = $this->httpClient->post($relativeUrl, [ 'form_params' => $parameters ]);
         }
         catch (ClientException $e) {
@@ -540,20 +602,41 @@ class ApiClient
         $this->baseUrl = $baseUrl;
     }
 
+
     /**
-     * @return Client
+     * @param array $parsedUrl
+     * @return string
      */
-    public function getHttpClient()
+    protected function _getPathFromParsedUrl(array $parsedUrl)
     {
-        return $this->httpClient;
+        $scheme   = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] . '://' : '';
+        $host     = isset($parsedUrl['host']) ? $parsedUrl['host'] : '';
+        $port     = isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
+        $user     = isset($parsedUrl['user']) ? $parsedUrl['user'] : '';
+        $pass     = isset($parsedUrl['pass']) ? ':' . $parsedUrl['pass']  : '';
+        $pass     = ($user || $pass) ? "$pass@" : '';
+        $path     = isset($parsedUrl['path']) ? $parsedUrl['path'] : '';
+        // $query    = isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '';
+        // $fragment = isset($parsedUrl['fragment']) ? '#' . $parsedUrl['fragment'] : '';
+
+        return "$scheme$user$pass$host$port$path";
     }
 
     /**
-     * @param Client $httpClient
+     * @param array $parsedUrl
+     * @return array
      */
-    public function setHttpClient($httpClient)
+    protected function _getParamsFromParsedUrl(array $parsedUrl)
     {
-        $this->httpClient = $httpClient;
+        $baseUrlParams = [];
+
+        if (empty($parsedUrl['query'])) {
+            return $baseUrlParams;
+        }
+
+        parse_str($parsedUrl['query'], $baseUrlParams);
+
+        return $baseUrlParams;
     }
 
 }
