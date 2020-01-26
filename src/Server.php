@@ -99,6 +99,12 @@ class Server
             throw $e;
         }
 
+        // handle additional account existence check
+        $rawData = $response->getRawData();
+        if (isset($rawData['status']) && $rawData['status'] == 404) {
+            return null;
+        }
+
         $account = Account::fromHorizonResponse($response);
         $account->setApiClient($this->apiClient);
 
